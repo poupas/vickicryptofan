@@ -3,6 +3,7 @@
 import time
 import json
 import re
+import logging
 
 from decimal import Decimal as D
 
@@ -65,25 +66,14 @@ REX = re.compile(
     '^I am\s+going\s+(?P<pos>short|long)(?:\s+on)?\s+(?P<pair>[A-Z]+)')
 
 
-def kraken_handle_errors(func):
-    def wrapper(*args, **kwargs):
-        try:
-            r = func(*args, **kwargs)
-        except json.JSONDecodeError as jde:
-            print(
-                'Kraken request failed: %s. failed: %s, args: %s, kwargs: %s' %
-                (jde, func, args, kwargs))
-            return None
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG)
+log = logging.getLogger(__name__)
 
-        except IOError as ioe:
-            print(
-                'Kraken request failed: %s. failed: %s, args: %s, kwargs: %s' %
-                (ioe, func, args, kwargs))
 
-        else:
-            return r
-
-    return wrapper
+class KrakenError(Exception):
+    pass
 
 
 def update_state(state, pair, who, _id, what):
@@ -116,7 +106,7 @@ def save_state(path, state):
 
 def vicki_refresh_pos(api, state, cur_tweet_id):
 
-    print('Fetching tweets...')
+    log.debug('Fetching tweets...')
     timeline = api.GetUserTimeline(
         screen_name=VICKI_USER, exclude_replies=True, include_rts=False,
         trim_user=True, since_id=cur_tweet_id)
@@ -148,13 +138,13 @@ def vicki_refresh_pos(api, state, cur_tweet_id):
 def kraken_fetch_open_orders(api):
     response = api.query_private('OpenOrders', {})
     if response['error']:
-        print('fetch_open_orders error: %s' % response['error'])
-        return None
+        log.error('Could not fetch open orders: %s', response['error'])
+        raise KrakenError(response['error'])
 
     try:
         open_orders = response['result']['open']
     except KeyError:
-        return None
+        return {}
 
     orders = {}
     for txid, order in open_orders.items():
@@ -179,28 +169,28 @@ def kraken_add_order(api, pair, _type, amount):
     }
     response = api.query_private('AddOrder', args)
     if response['error']:
-        print('add_order error: %s' % response['error'])
-        return None
+        log.error('Could not add order %s', response['error'])
+        raise KrakenError(response['error'])
 
-    print("Order %s was created." % response['result'])
+    log.info("Order %s was created", response['result'])
     return response['result']
 
 
 def kraken_cancel_order(api, txid):
     response = api.query_private('CancelOrder', {'txid': txid})
     if response['error']:
-        print('cancel_order error: %s' % response['error'])
+        log.error('Could not cancel order %s', response['error'])
         return False
 
-    print("Order %s was cancelled." % txid)
+    log.info("Order %s was cancelled.", txid)
     return True
 
 
 def kraken_fetch_balance(api):
     response = api.query_private('Balance', {})
     if response['error']:
-        print('fetch_balance error: %s' % response['error'])
-        return {}
+        log.error('Could not fetch balance: %s', response['error'])
+        raise KrakenError(response['error'])
 
     return(response['result'])
 
@@ -208,7 +198,7 @@ def kraken_fetch_balance(api):
 def kraken_fetch_asset_balance(api, asset):
     try:
         balance = kraken_fetch_balance(api)
-        print('Current balance: %s' % balance)
+        log.debug('Current balance: %s', balance)
         balance = balance[asset]
     except KeyError:
         balance = '0'
@@ -258,12 +248,12 @@ def trading_state_machine(state, kapi):
     for pair, cfg in PAIRS.items():
         pair_state = state.get(pair)
         if pair_state is None:
-            print('Ignoring pair %s...' % pair)
+            log.debug('Ignoring pair %s...', pair)
             continue
 
         vicki = pair_state.get('vicki')
         if vicki is None:
-            print('Vicki does not recognize %s as a valid pair.' % pair)
+            log.debug('Vicki does not recognize %s as a valid pair', pair)
             continue
 
         assert(vicki['position'] in ('short', 'long'))
@@ -271,13 +261,13 @@ def trading_state_machine(state, kapi):
         kraken = pair_state.get('kraken')
         if kraken is not None:
             if kraken['position'] == vicki['position']:
-                print('Kraken and Vicki synced. All good.')
+                log.info('Kraken and Vicki synced for pair %s', pair)
                 continue
 
             # Vicki and Kraken disagree. Clear open orders for this pair.
             txids = kraken.get('txids', ())
             for txid in txids:
-                print('Removing txid %s from open orders' % txid)
+                log.info('Removing txid %s from open orders', txid)
                 kraken_cancel_order(kapi, txid)
         else:
             kraken = pair_state['kraken'] = {}
@@ -324,10 +314,10 @@ def main():
     while True:
         state, cur_tweet_id = vicki_refresh_pos(tapi, state, cur_tweet_id)
         state = kraken_refresh_pos(state, kapi)
-        print('Current state: %s' % state)
+        log.debug('Current state: %s', state)
 
         state = trading_state_machine(state, kapi)
-        print('Current state: %s' % state)
+        log.debug('Current state: %s', state)
 
         save_state(STATE_PATH, state)
         time.sleep(WAIT_SECONDS)
