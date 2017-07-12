@@ -27,19 +27,38 @@ KRAKEN_AUTH_PATH = 'kraken.auth'
 
 
 PAIRS = {
-    #'BTCUSD': {'buy': 200, 'kraken': 'XBTEUR', 'asset': 'XBT'},
-    #'ETHBTC': {'kraken': 'ETHXBT', 'asset': 'ETH'},
+    'BTCUSD': {
+        'buy': D(200),
+        'kraken_pair': 'XBTEUR',
+        'kraken_asset': 'XXBT',
+        'asset': 'XBT'
+    },
+
     'ETHUSD': {
         'buy': D(500),
         'kraken_pair': 'ETHEUR',
         'kraken_asset': 'XETH',
         'asset': 'ETH'
     },
+    'XMRBTC': {
+        'buy': D(100),
+        'kraken_pair': 'XMREUR',
+        'kraken_asset': 'XXMR',
+        'asset': 'XMR'
+    },
+    'ZECUSD': {
+        'buy': D(100),
+        'kraken_pair': 'ZECEUR',
+        'kraken_asset': 'XZEC',
+        'asset': 'ZEC'
+    },
 }
 
 KRAKEN_PAIRS = {
     'XBTEUR': 'BTCUSD',
     'ETHEUR': 'ETHUSD',
+    'XMREUR': 'XMRBTC',
+    'ZECEUR': 'ZECUSD',
 }
 
 REX = re.compile(
