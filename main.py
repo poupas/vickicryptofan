@@ -295,11 +295,9 @@ def trading_state_machine(state, kapi):
                 kraken_add_order(kapi, kraken_pair, 'buy', to_buy)
             kraken['txids'] = []
             kraken['position'] = 'long'
+
         elif vicki['position'] == 'short':
             to_sell = kraken_fetch_asset_balance(kapi, kraken_asset)
-            if to_sell is None:
-                return state
-
             if to_sell > D('0.0001'):
                 kraken_add_order(kapi, kraken_pair, 'sell', to_sell)
             kraken['position'] = 'short'
