@@ -126,7 +126,6 @@ def vicki_refresh_pos(api, state, cur_tweet_id):
     return state, cur_tweet_id
 
 
-@kraken_handle_errors
 def kraken_fetch_open_orders(api):
     response = api.query_private('OpenOrders', {})
     if response['error']:
@@ -151,7 +150,6 @@ def kraken_fetch_open_orders(api):
     return orders
 
 
-@kraken_handle_errors
 def kraken_add_order(api, pair, _type, amount):
 
     args = {
@@ -169,7 +167,6 @@ def kraken_add_order(api, pair, _type, amount):
     return response['result']
 
 
-@kraken_handle_errors
 def kraken_cancel_order(api, txid):
     response = api.query_private('CancelOrder', {'txid': txid})
     if response['error']:
@@ -180,7 +177,6 @@ def kraken_cancel_order(api, txid):
     return True
 
 
-@kraken_handle_errors
 def kraken_fetch_balance(api):
     response = api.query_private('Balance', {})
     if response['error']:
@@ -228,7 +224,6 @@ def kraken_refresh_pos(state, api):
     return state
 
 
-@kraken_handle_errors
 def kraken_pair_value(api, pair):
     response = api.query_public('Ticker', {'pair': pair})
     data = response['result'].popitem()[1]
