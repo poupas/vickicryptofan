@@ -206,11 +206,13 @@ def kraken_fetch_balance(api):
 
 
 def kraken_fetch_asset_balance(api, asset):
-    balance = kraken_fetch_balance(api)
-    if balance is not None:
-        return D(balance[asset])
-
-    return None
+    try:
+        balance = kraken_fetch_balance(api)
+        print('Current balance: %s' % balance)
+        balance = balance[asset]
+    except KeyError:
+        balance = '0'
+    return D(balance)
 
 
 def kraken_orders_to_pos(orders):
