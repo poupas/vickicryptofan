@@ -251,7 +251,7 @@ def trading_state_machine(state, kapi):
         if kraken is not None:
             if kraken['position'] == vicki['position']:
                 print('Kraken and Vicki synced. All good.')
-                return state
+                continue
 
             # Vicki and Kraken disagree. Clear open orders for this pair.
             txids = kraken.get('txids', ())
@@ -263,6 +263,7 @@ def trading_state_machine(state, kapi):
 
         kraken_pair = cfg['kraken_pair']
         kraken_asset = cfg['kraken_asset']
+
         if vicki['position'] == 'long':
             asset_amount = kraken_fetch_asset_balance(kapi, kraken_asset)
             _, ask = kraken_pair_value(kapi, kraken_pair)
