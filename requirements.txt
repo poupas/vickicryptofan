@@ -1,0 +1,3 @@
+krakenex
+python-dateutil
+python-twitter
