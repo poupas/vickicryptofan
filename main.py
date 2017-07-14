@@ -119,8 +119,8 @@ def vicki_refresh_pos(api, state, cur_tweet_id):
         if action is None:
             continue
 
-        pair = action['pair']
-        position = action['pos'].lower()
+        pair = action.group('pair')
+        position = action.group('pos').lower()
         if pair not in PAIRS:
             continue
 
