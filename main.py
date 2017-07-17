@@ -159,14 +159,19 @@ def kraken_fetch_open_orders(api):
     return orders
 
 
-def kraken_add_order(api, pair, _type, amount):
+def kraken_add_order(api, pair, _type, amount, otype='market'):
 
     args = {
         'pair': pair,
         'type': _type,
-        'ordertype': 'market',
+        'ordertype': otype,
         'volume': amount,
     }
+
+    if otype == 'limit':
+        _, ask = kraken_pair_value(api, kraken)
+        args['price'] = ask
+
     response = api.query_private('AddOrder', args)
     if response['error']:
         log.error('Could not add order %s', response['error'])
