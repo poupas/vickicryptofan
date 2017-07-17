@@ -68,9 +68,9 @@ REX = re.compile(
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG)
+    level=logging.INFO)
 log = logging.getLogger(__name__)
-
+log.setLevel(logging.DEBUG)
 
 class KrakenError(Exception):
     pass
@@ -203,7 +203,7 @@ def kraken_fetch_balance(api):
 def kraken_fetch_asset_balance(api, asset):
     try:
         balance = kraken_fetch_balance(api)
-        log.debug('Current balance: %s', balance)
+        log.info('Current balance: %s', balance)
         balance = balance[asset]
     except KeyError:
         balance = '0'
@@ -253,12 +253,12 @@ def trading_state_machine(state, kapi):
     for pair, cfg in PAIRS.items():
         pair_state = state.get(pair)
         if pair_state is None:
-            log.debug('Ignoring pair %s...', pair)
+            log.info('Ignoring pair %s...', pair)
             continue
 
         vicki = pair_state.get('vicki')
         if vicki is None:
-            log.debug('Vicki does not recognize %s as a valid pair', pair)
+            log.warn('Vicki does not recognize %s as a valid pair', pair)
             continue
 
         assert(vicki['position'] in ('short', 'long'))
@@ -319,11 +319,9 @@ def main():
     while True:
         state, cur_tweet_id = vicki_refresh_pos(tapi, state, cur_tweet_id)
         state = kraken_refresh_pos(state, kapi)
-        log.debug('Current state: %s', state)
-
         state = trading_state_machine(state, kapi)
-        log.debug('Current state: %s', state)
 
+        log.info('Current state: %s', state)
         save_state(STATE_PATH, state)
         time.sleep(WAIT_SECONDS)
 
