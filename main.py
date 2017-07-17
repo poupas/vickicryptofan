@@ -93,7 +93,7 @@ def update_state(state, pair, who, _id, what):
 
 def load_state(path):
     try:
-        with open(path, 'rb') as fp:
+        with open(path, 'r') as fp:
             return json.load(fp)
     except (ValueError, IOError, TypeError):
         return None
