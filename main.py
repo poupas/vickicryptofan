@@ -169,7 +169,7 @@ def kraken_add_order(api, pair, _type, amount, otype='market'):
     }
 
     if otype == 'limit':
-        bid, ask = kraken_pair_value(api, kraken)
+        bid, ask = kraken_pair_value(api, pair)
         args['price'] = ask if _type == 'buy' else bid
 
     response = api.query_private('AddOrder', args)
