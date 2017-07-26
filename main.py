@@ -291,14 +291,14 @@ def trading_state_machine(state, kapi):
             max_spend = cfg['buy'] - asset_amount_base
             to_buy = max_spend / ask
             if to_buy > D('0.0001'):
-                kraken_add_order(kapi, kraken_pair, 'buy', to_buy)
+                kraken_add_order(kapi, kraken_pair, 'buy', to_buy, 'limit')
             kraken['txids'] = []
             kraken['position'] = 'long'
 
         elif vicki['position'] == 'short':
             to_sell = kraken_fetch_asset_balance(kapi, kraken_asset)
             if to_sell > D('0.0001'):
-                kraken_add_order(kapi, kraken_pair, 'sell', to_sell)
+                kraken_add_order(kapi, kraken_pair, 'sell', to_sell, 'limit')
             kraken['position'] = 'short'
             kraken['txids'] = []
 
