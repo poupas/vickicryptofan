@@ -4,18 +4,16 @@ import time
 import json
 import re
 import logging
+import sys
 
 from decimal import Decimal as D
 
 import krakenex
 import dateutil.parser
 
-from twitter import Api
+import twitter
 
-CONSUMER_KEY = ''
-CONSUMER_SECRET = ''
-ACCESS_TOKEN_KEY = ''
-ACCESS_TOKEN_SECRET = ''
+import local_settings
 
 VICKI_USER = '@vickicryptobot'
 
@@ -62,6 +60,10 @@ KRAKEN_PAIRS = {
     'ZECEUR': 'ZECUSD',
 }
 
+EQUIVALENT_PAIRS = {
+    'ETHBTC': 'ETHUSD'
+}
+
 REX = re.compile(
     '^I am\s+going\s+(?P<pos>short|long)(?:\s+on)?\s+(?P<pair>[A-Z]+)')
 
@@ -71,6 +73,7 @@ logging.basicConfig(
     level=logging.INFO)
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
 
 class KrakenError(Exception):
     pass
@@ -120,6 +123,7 @@ def vicki_refresh_pos(api, state, cur_tweet_id):
             continue
 
         pair = action.group('pair')
+        pair = EQUIVALENT_PAIRS.get(pair, pair)
         position = action.group('pos').lower()
         if pair not in PAIRS:
             continue
@@ -302,11 +306,12 @@ def trading_state_machine(state, kapi):
 
 
 def main():
-    tapi = Api(
-        consumer_key=CONSUMER_KEY,
-        consumer_secret=CONSUMER_SECRET,
-        access_token_key=ACCESS_TOKEN_KEY,
-        access_token_secret=ACCESS_TOKEN_SECRET)
+
+    tapi = twitter.Api(
+        consumer_key=local_settings.CONSUMER_KEY,
+        consumer_secret=local_settings.CONSUMER_SECRET,
+        access_token_key=local_settings.ACCESS_TOKEN_KEY,
+        access_token_secret=local_settings.ACCESS_TOKEN_SECRET)
 
     kapi = krakenex.API()
     kapi.load_key(KRAKEN_AUTH_PATH)
@@ -317,7 +322,14 @@ def main():
 
     cur_tweet_id = 0
     while True:
-        state, cur_tweet_id = vicki_refresh_pos(tapi, state, cur_tweet_id)
+        try:
+            state, cur_tweet_id = vicki_refresh_pos(tapi, state, cur_tweet_id)
+        except twitter.error.TwitterError as tex:
+            log.error("Twitter authenticated failed: %s "
+                      "Please ensure that credentials are properly set in "
+                      "local_settings.py", tex)
+            sys.exit(1)
+
         state = kraken_refresh_pos(state, kapi)
         state = trading_state_machine(state, kapi)
 
