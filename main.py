@@ -60,10 +60,6 @@ KRAKEN_PAIRS = {
     'ZECEUR': 'ZECUSD',
 }
 
-EQUIVALENT_PAIRS = {
-    'ETHBTC': 'ETHUSD'
-}
-
 REX = re.compile(
     '^I am\s+going\s+(?P<pos>short|long)(?:\s+on)?\s+(?P<pair>[A-Z]+)')
 
@@ -123,7 +119,6 @@ def vicki_refresh_pos(api, state, cur_tweet_id):
             continue
 
         pair = action.group('pair')
-        pair = EQUIVALENT_PAIRS.get(pair, pair)
         position = action.group('pos').lower()
         if pair not in PAIRS:
             continue
