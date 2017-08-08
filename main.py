@@ -15,8 +15,6 @@ import twitter
 
 import local_settings
 
-VICKI_USER = '@vickicryptobot'
-
 WAIT_SECONDS = 120
 
 PAIR_POSITIONS = None
@@ -27,30 +25,21 @@ KRAKEN_AUTH_PATH = 'kraken.auth'
 
 PAIRS = {
     'BTCUSD': {
-        'buy': D(200),
+        'buy': D(100),
         'kraken_pair': 'XBTEUR',
         'kraken_asset': 'XXBT',
-        'asset': 'XBT'
+        'asset': 'XBT',
+        'vicki_account': '@vickibtcusdbot',
     },
 
     'ETHUSD': {
         'buy': D(500),
         'kraken_pair': 'ETHEUR',
         'kraken_asset': 'XETH',
-        'asset': 'ETH'
+        'asset': 'ETH',
+        'vicki_account': '@vickiethusdbot',
     },
-    'XMRBTC': {
-        'buy': D(100),
-        'kraken_pair': 'XMREUR',
-        'kraken_asset': 'XXMR',
-        'asset': 'XMR'
-    },
-    'ZECUSD': {
-        'buy': D(100),
-        'kraken_pair': 'ZECEUR',
-        'kraken_asset': 'XZEC',
-        'asset': 'ZEC'
-    },
+
 }
 
 KRAKEN_PAIRS = {
@@ -61,7 +50,7 @@ KRAKEN_PAIRS = {
 }
 
 REX = re.compile(
-    '^I am\s+going\s+(?P<pos>short|long)(?:\s+on)?\s+(?P<pair>[A-Z]+)')
+    '^I am\s+(?:going\s+)?(?P<pos>short|long)\s+(?:on\s+)?(?P<pair>[A-Z]+)')
 
 
 logging.basicConfig(
@@ -103,16 +92,46 @@ def save_state(path, state):
         json.dump(state, fp)
 
 
-def vicki_refresh_pos(api, state, cur_tweet_id):
+def vicki_fetch_latest_ids(state):
+    latest_ids = {}
+    for pair in state.values():
+        try:
+            account = pair['vicki']['vicki_account']
+        except KeyError:
+            log.debug('Account does not exist for pair %s' % pair)
+            continue
 
-    log.debug('Fetching tweets...')
+        if account not in latest_ids:
+            latest_ids[account] = pair['vicki']['id']
+            continue
+
+        if pair['vicki']['id'] > latest_ids[account]:
+            latest_ids[account] = pair['vicki']['id']
+
+    return latest_ids
+
+
+def vicki_refresh_pos(api, state):
+    latest_ids = vicki_fetch_latest_ids(state)
+
+    for settings in PAIRS.values():
+        account = settings['vicki_account']
+        latest_id = latest_ids.get(account, 0)
+        state = vicki_refresh_user_pos(api, state, account, latest_id)
+
+    return state
+
+
+def vicki_refresh_user_pos(api, state, account, since_id):
+
+    log.debug('Fetching tweets for %s...' % account)
     timeline = api.GetUserTimeline(
-        screen_name=VICKI_USER, exclude_replies=True, include_rts=False,
-        trim_user=True, since_id=cur_tweet_id)
+        screen_name=account, exclude_replies=True, include_rts=False,
+        trim_user=True, since_id=since_id)
 
     for tweet in timeline:
         _id = int(tweet.id_str)
-        cur_tweet_id = max(cur_tweet_id, _id)
+        since_id = max(since_id, _id)
 
         action = REX.match(tweet.text)
         if action is None:
@@ -123,15 +142,20 @@ def vicki_refresh_pos(api, state, cur_tweet_id):
         if pair not in PAIRS:
             continue
 
+        if PAIRS[pair]['vicki_account'] != account:
+            continue
+
         ts = dateutil.parser.parse(tweet.created_at).strftime('%s')
         vicki_action = {
             'position': position,
             'ts': ts,
+            'vicki_account': account,
             'id': _id
         }
+
         state = update_state(state, pair, 'vicki', _id, vicki_action)
 
-    return state, cur_tweet_id
+    return state
 
 
 def kraken_fetch_open_orders(api):
@@ -315,10 +339,9 @@ def main():
     if state is None:
         state = {}
 
-    cur_tweet_id = 0
     while True:
         try:
-            state, cur_tweet_id = vicki_refresh_pos(tapi, state, cur_tweet_id)
+            state = vicki_refresh_pos(tapi, state)
         except twitter.error.TwitterError as tex:
             log.error("Twitter authenticated failed: %s "
                       "Please ensure that credentials are properly set in "
