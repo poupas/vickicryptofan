@@ -25,11 +25,11 @@ KRAKEN_AUTH_PATH = 'kraken.auth'
 
 PAIRS = {
     'BTCUSD': {
-        'buy': D(100),
+        'buy': D(350),
         'kraken_pair': 'XBTEUR',
         'kraken_asset': 'XXBT',
         'asset': 'XBT',
-        'vicki_account': '@vickibtcusdbot',
+        'vicki_account': '@vickibotbtcusd',
     },
 
     'ETHUSD': {
@@ -37,7 +37,7 @@ PAIRS = {
         'kraken_pair': 'ETHEUR',
         'kraken_asset': 'XETH',
         'asset': 'ETH',
-        'vicki_account': '@vickiethusdbot',
+        'vicki_account': '@vickibotethusd',
     },
 
 }
@@ -50,7 +50,7 @@ KRAKEN_PAIRS = {
 }
 
 REX = re.compile(
-    '^I am\s+(?:going\s+)?(?P<pos>short|long)\s+(?:on\s+)?(?P<pair>[A-Z]+)')
+    '.*I am\s+(?:going\s+)?(?P<pos>short|long)\s+(?:on\s+)?(?P<pair>[A-Z]+)')
 
 
 logging.basicConfig(
