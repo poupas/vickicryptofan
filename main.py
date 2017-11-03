@@ -33,7 +33,7 @@ PAIRS = {
     },
 
     'ETHUSD': {
-        'buy': D(500),
+        'buy': None,  # "None" means we should use all available balance
         'kraken_pair': 'ETHEUR',
         'kraken_asset': 'XETH',
         'asset': 'ETH',
@@ -195,6 +195,9 @@ def kraken_add_order(api, pair, _type, amount, otype='market'):
         bid, ask = kraken_pair_value(api, pair)
         args['price'] = ask if _type == 'buy' else bid
 
+    amount = '%0.5f' % amount
+    log.info('Adding order: type: %s, pair: %s, amount: %s',
+        _type, pair, amount)
     response = api.query_private('AddOrder', args)
     if response['error']:
         log.error('Could not add order %s', response['error'])
@@ -223,14 +226,19 @@ def kraken_fetch_balance(api):
     return(response['result'])
 
 
-def kraken_fetch_asset_balance(api, asset):
-    try:
-        balance = kraken_fetch_balance(api)
-        log.info('Current balance: %s', balance)
-        balance = balance[asset]
-    except KeyError:
-        balance = '0'
-    return D(balance)
+def kraken_fetch_asset_balance(api, assets):
+    balances = {}
+    for asset in assets:
+        try:
+            balance = kraken_fetch_balance(api)
+            log.info('Current balance: %s', balance)
+            balance = balance[asset]
+        except KeyError:
+            balance = '0'
+
+        balances[asset] = D(balance)
+
+    return balances
 
 
 def kraken_orders_to_pos(orders):
@@ -304,20 +312,27 @@ def trading_state_machine(state, kapi):
         kraken_asset = cfg['kraken_asset']
 
         if vicki['position'] == 'long':
-            asset_amount = kraken_fetch_asset_balance(kapi, kraken_asset)
+            balances = kraken_fetch_asset_balance(kapi, [kraken_asset, 'ZEUR'])
+            asset_balance = balances[kraken_asset]
             _, ask = kraken_pair_value(kapi, kraken_pair)
-            asset_amount_base = ask * asset_amount
-            max_spend = cfg['buy'] - asset_amount_base
+            asset_amount_base = ask * asset_balance
+
+            if cfg['buy'] is None:
+                fiat_balance = balances['ZEUR']
+                max_spend = fiat_balance * D('0.95')
+            else:
+                max_spend = cfg['buy'] - asset_amount_base
+            print("Max spend: %s, ask: %s" % (max_spend, ask))
             to_buy = max_spend / ask
-            if to_buy > D('0.0001'):
-                kraken_add_order(kapi, kraken_pair, 'buy', to_buy, 'limit')
+            if max_spend > D('5.0'):
+                kraken_add_order(kapi, kraken_pair, 'buy', to_buy)
             kraken['txids'] = []
             kraken['position'] = 'long'
 
         elif vicki['position'] == 'short':
-            to_sell = kraken_fetch_asset_balance(kapi, kraken_asset)
+            to_sell = kraken_fetch_asset_balance(kapi, [kraken_asset])
             if to_sell > D('0.0001'):
-                kraken_add_order(kapi, kraken_pair, 'sell', to_sell, 'limit')
+                kraken_add_order(kapi, kraken_pair, 'sell', to_sell)
             kraken['position'] = 'short'
             kraken['txids'] = []
 
