@@ -314,15 +314,24 @@ def trading_state_machine(state, kapi):
         if vicki['position'] == 'long':
             balances = kraken_fetch_asset_balance(kapi, [kraken_asset, 'ZEUR'])
             asset_balance = balances[kraken_asset]
+            fiat_balance = balances['ZEUR']
+            fiat_limit = fiat_balance * D('0.95')
+
             _, ask = kraken_pair_value(kapi, kraken_pair)
             asset_amount_base = ask * asset_balance
 
             if cfg['buy'] is None:
-                fiat_balance = balances['ZEUR']
-                max_spend = fiat_balance * D('0.95')
+                max_spend = fiat_limit
             else:
                 max_spend = cfg['buy'] - asset_amount_base
-            print("Max spend: %s, ask: %s" % (max_spend, ask))
+
+            log.info("Max spend: %s EUR, ask: %s EUR, balance: %s EUR" %
+                     (max_spend, ask, fiat_balance))
+
+            if max_spend > fiat_limit:
+                log.debug("Capping spend amount to %s EUR" % fiat_limit)
+                max_spend = fiat_limit
+
             to_buy = max_spend / ask
             if max_spend > D('5.0'):
                 kraken_add_order(kapi, kraken_pair, 'buy', to_buy)
